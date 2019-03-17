@@ -1,35 +1,51 @@
+# -*- coding: utf-8 -*-
+
 import cv2
-import sys
 import imagehash
 from PIL import Image
 import datetime
 import time
+import ConfigParser
+import copy
 
+# Read paramater from config file
+config = ConfigParser.ConfigParser()
+config.read('securityCamera.ini')
+interval = float(config.get('settings','interval')) 
+threshold = int(config.get('settings','threshold')) 
+
+# image capture
 c = cv2.VideoCapture(0)
+c.read()
+
+
 prev_hash = None
 
-while True:
-	time.sleep(1)
+try:
+	while True:	
+		time.sleep(interval)
+		r, img = c.read()
+		if r == True:
 
-	r, img = c.read()
+			hash = imagehash.average_hash(Image.fromarray(img))
+			print(hash)
+			print(prev_hash)
 
-	if r == True:
+			if prev_hash is None or prev_hash - hash > threshold:
+				now = datetime.datetime.now()
+				datestr = '{0:%Y%m%d%H%M%S}'.format(now)
+				print('Detect somthing change!!....' + datestr)
+				cv2.imwrite(datestr + 'detected.jpg', img)
+			
+			prev_hash = copy.deepcopy(hash)
 
-		hash = imagehash.average_hash(Image.fromarray(img))
-		print(hash)
-		print(type(hash))
+		print('next')
+		
+		k = cv2.waitKey(1)
+		if k == ord('q'):
+			break
 
-		if prev_hash is None or prev_hash != hash:
-			now = datetime.datetime.now()
-			datestr = '{0:%Y%m%d%H%M%S}'.format(now)
-			print('Detect somthing change!!....' + datestr)
-
-			cv2.imwrite(datestr + 'detected.jpg', img)
-			prev_hash = hash
-
-	print('next')
-
-
-
+except KeyboardInterrupt:
+	c.release()
 
 
