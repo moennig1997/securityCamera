@@ -54,6 +54,7 @@ def send(from_addr, to_addr, smtp_host, smtp_port, smtp_user, smtp_pass, msg):
     smtpobj.sendmail(from_addr, to_addr, msg.as_string())
     smtpobj.close()
 
+#main routin
 
 #create logger
 logger = logging.getLogger('seccamera_application')
@@ -78,8 +79,11 @@ config = ConfigParser.ConfigParser()
 config.read('securityCamera.ini')
 interval = float(config.get('settings','interval')) 
 threshold = int(config.get('settings','threshold')) 
+camera_num =  int(config.get('settings','cameraNum'))
+retention_time =  int(config.get('settings','retentionTime'))
+tailcut_time =  int(config.get('settings','tailcutTime'))
 
-
+# Read mail paramater from mail config file
 config.read('mail.ini')
 from_addr = config.get('mail', 'from_addr')
 to_addr = config.get('mail', 'to_addr')
@@ -97,9 +101,8 @@ logger.info(smtp_pass)
 
 
 # image capture
-c = cv2.VideoCapture(0)
+c = cv2.VideoCapture(camera_num)
 time.sleep(5)
-c.read()
 
 prev_hash = None
 
@@ -114,11 +117,9 @@ try:
 		if r == True:
 
 			hash = imagehash.average_hash(Image.fromarray(img))
-			#logger.info(hash)
-			#logger.info(prev_hash)
 
 			if prev_hash is None or prev_hash - hash > threshold:
-				change_detected = 3
+				change_detected = retention_time
 				now = datetime.datetime.now(timezone('Asia/Tokyo'))
 				datestr = '{0:%Y%m%d%H%M%S}'.format(now)
 				logger.info('Detect something change!!....' + datestr)
@@ -137,6 +138,7 @@ try:
 				logger.info('counter:'+str(change_detected))
 
 				if change_detected == 0:
+					del(detect_images[-tailcut_time:])
 					attache_image = Image.new('RGB', (640, 480 * len(detect_images)))
 					for i, image in enumerate(detect_images):
 						im = Image.open(image)
@@ -159,6 +161,9 @@ try:
 
 			
 			prev_hash = copy.deepcopy(hash)
+		else :
+			c.release()
+			c = cv2.VideoCapture(camera_num)
 
 		#logger.info('next')
 
