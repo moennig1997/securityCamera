@@ -100,12 +100,12 @@ logger.info(smtp_user)
 logger.info(smtp_pass)
 
 
-# image capture
+# create video capture object
 c = cv2.VideoCapture(camera_num)
 time.sleep(5)
 
+# Initialize variable
 prev_hash = None
-
 change_detected = 0
 detect_images = []
 
@@ -113,11 +113,15 @@ detect_images = []
 try:
 	while True:	
 		time.sleep(interval)
+
+		# read image from camera
 		r, img = c.read()
 		if r == True:
 
+			# get hash value 
 			hash = imagehash.average_hash(Image.fromarray(img))
 
+			# compare hash from 
 			if prev_hash is None or prev_hash - hash > threshold:
 				change_detected = retention_time
 				now = datetime.datetime.now(timezone('Asia/Tokyo'))
@@ -128,34 +132,36 @@ try:
 
 			elif change_detected > 0:
 
-				now = datetime.datetime.now(timezone('Asia/Tokyo'))
-				datestr = '{0:%Y%m%d%H%M%S}'.format(now)
-				logger.info('Detect something change!!....' + datestr)
-				cv2.imwrite(datestr + 'detected.jpg', img)
-				detect_images.append(datestr + 'detected.jpg')
+				#now = datetime.datetime.now(timezone('Asia/Tokyo'))
+				#datestr = '{0:%Y%m%d%H%M%S}'.format(now)
+				#logger.info('Detect something change!!....' + datestr)
+				#cv2.imwrite(datestr + 'detected.jpg', img)
+				#detect_images.append(datestr + 'detected.jpg')
 
 				change_detected -= 1
 				logger.info('counter:'+str(change_detected))
 
 				if change_detected == 0:
-					del(detect_images[-tailcut_time:])
-					attache_image = Image.new('RGB', (640, 480 * len(detect_images)))
-					for i, image in enumerate(detect_images):
-						im = Image.open(image)
-						attache_image.paste(im, (0, 480*i))
-						im.close()
+					if len(detect_images) > 1:
+						if tailcut_time != 0 :
+							del(detect_images[-tailcut_time:])
+						attache_image = Image.new('RGB', (640, 480 * len(detect_images)))
+						for i, image in enumerate(detect_images):
+							im = Image.open(image)
+							attache_image.paste(im, (0, 480*i))
+							im.close()
 
-					now = datetime.datetime.now(timezone('Asia/Tokyo'))
-					datestr = '{0:%Y%m%d%H%M%S}'.format(now)
-					attache_image.save('attache_' + datestr + '.jpeg')
-					attache_image.close()
-					detect_images = []
+						now = datetime.datetime.now(timezone('Asia/Tokyo'))
+						datestr = '{0:%Y%m%d%H%M%S}'.format(now)
+						attache_image.save('attache_' + datestr + '.jpeg')
+						attache_image.close()
+						detect_images = []
 
-					msg = create_message(from_addr, to_addr, 'Detect something change!!....' + datestr,'Detect something change!!....' + datestr, 'attache_' + datestr + '.jpeg')
-					send(from_addr, to_addr, smtp_host, smtp_port, smtp_user, smtp_pass, msg )
-					change_detected = 0
+						msg = create_message(from_addr, to_addr, 'Detect something change!!....' + datestr,'Detect something change!!....' + datestr, 'attache_' + datestr + '.jpeg')
+						send(from_addr, to_addr, smtp_host, smtp_port, smtp_user, smtp_pass, msg )
+						change_detected = 0
 
-					logger.info('send message')
+						logger.info('send message')
 
 				
 
@@ -170,6 +176,11 @@ try:
 		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break
 
-except KeyboardInterrupt:
+except Exception as e:
+	logger.info(e)
+
+finally:
 	c.release()
+
+
 
