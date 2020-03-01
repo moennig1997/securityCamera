@@ -18,6 +18,9 @@ from email.MIMEMultipart import MIMEMultipart
 from email.utils import formatdate
 from retry import retry
 
+# import library for slack
+from slackclient import SlackClient
+
 import logging
 
 
@@ -54,6 +57,13 @@ def send(from_addr, to_addr, smtp_host, smtp_port, smtp_user, smtp_pass, msg):
     smtpobj.sendmail(from_addr, to_addr, msg.as_string())
     smtpobj.close()
 
+def slack_send_message(client, channel_id, message):
+    client.api_call(
+        "chat.postMessage",
+        channel=channel_id,
+        text=message
+	)
+
 #main routin
 
 #create logger
@@ -82,6 +92,7 @@ threshold = int(config.get('settings','threshold'))
 camera_num =  int(config.get('settings','cameraNum'))
 retention_time =  int(config.get('settings','retentionTime'))
 tailcut_time =  int(config.get('settings','tailcutTime'))
+slack_token = config.get('settings','slackToken')
 
 # Read mail paramater from mail config file
 config.read('mail.ini')
@@ -109,9 +120,13 @@ prev_hash = None
 change_detected = 0
 detect_images = []
 
+# create slack client
 
-try:
-	while True:	
+slack_client = SlackClient(slack_token)
+
+
+while True:	
+	try:
 		time.sleep(interval)
 
 		# read image from camera
@@ -159,13 +174,10 @@ try:
 
 						msg = create_message(from_addr, to_addr, 'Detect something change!!....' + datestr,'Detect something change!!....' + datestr, 'attache_' + datestr + '.jpeg')
 						send(from_addr, to_addr, smtp_host, smtp_port, smtp_user, smtp_pass, msg )
+						slack_send_message(slack_client,"home","Detect something change!!....")
 						change_detected = 0
 
 						logger.info('send message')
-
-				
-
-			
 			prev_hash = copy.deepcopy(hash)
 		else :
 			c.release()
@@ -176,11 +188,9 @@ try:
 		if cv2.waitKey(1) & 0xFF == ord('q'):
 			break
 
-except Exception as e:
-	logger.info(e)
-
-finally:
-	c.release()
+	except Exception as e:
+		logger.info(e)
+		pass;
 
 
 
