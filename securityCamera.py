@@ -1,4 +1,55 @@
 # -*- coding: utf-8 -*-
+"""
+securityCamera.py
+
+This script implements a security camera system that detects changes in a video feed, logs the events, and sends notifications via email and Slack. 
+It uses OpenCV for video capture, imagehash for image comparison, and various libraries for email and Slack integration.
+
+Modules:
+	- cv2: OpenCV library for video capture and image processing.
+	- imagehash: Library for generating hash values of images.
+	- PIL (Image): Python Imaging Library for image manipulation.
+	- datetime, time, pytz: Libraries for handling date and time.
+	- ConfigParser: Library for reading configuration files.
+	- copy: Library for deep copying objects.
+	- smtplib, email: Libraries for sending emails.
+	- retry: Library for retrying failed operations.
+	- slackclient: Library for interacting with Slack.
+	- logging: Library for logging events.
+
+Functions:
+	- create_message(from_addr, to_addr, subject, body, attach): Creates an email message with an attachment.
+	- send(from_addr, to_addr, smtp_host, smtp_port, smtp_user, smtp_pass, msg): Sends an email with retry logic.
+	- slack_send_message(client, channel_id, message): Sends a message to a Slack channel.
+
+Main Routine:
+	- Reads configuration parameters from `securityCamera.ini` and `mail.ini`.
+	- Initializes logging, video capture, and Slack client.
+	- Continuously captures frames from the camera, detects changes using image hashing, and logs events.
+	- If a change is detected, captures images, combines them into a single image, and sends notifications via email and Slack.
+	- Handles exceptions and retries operations as needed.
+
+Configuration Files:
+	- securityCamera.ini: Contains settings for the camera, detection interval, thresholds, and Slack token.
+	- mail.ini: Contains email configuration parameters such as SMTP host, port, and credentials.
+
+Logging:
+	- Logs events to a file (`securityCamera.log`) and the console.
+	- Logs include information about detected changes, email sending, and errors.
+
+Usage:
+	- Ensure the required configuration files (`securityCamera.ini` and `mail.ini`) are present and properly configured.
+	- Run the script to start the security camera system.
+	- Press 'q' to exit the application.
+
+Dependencies:
+	- OpenCV (cv2)
+	- imagehash
+	- Pillow (PIL)
+	- pytz
+	- retry
+	- slackclient
+"""
 
 import cv2
 import imagehash
@@ -6,7 +57,7 @@ from PIL import Image
 import datetime
 import time
 from pytz import timezone
-import ConfigParser
+import configparser
 import copy
 
 # import library for mail
@@ -24,6 +75,23 @@ from slackclient import SlackClient
 import logging
 
 
+"""
+Creates an email message with a subject, body, and an attached file.
+
+Args:
+	from_addr (str): The sender's email address.
+	to_addr (str): The recipient's email address.
+	subject (str): The subject of the email.
+	body (str): The body text of the email.
+	attach (str): The file path of the attachment.
+
+Returns:
+	MIMEMultipart: The constructed email message object.
+
+Note:
+	- The attachment is assumed to be a JPEG image.
+	- The file specified in `attach` must exist and be readable.
+"""
 def create_message(from_addr, to_addr,  subject, body, attach):
     msg = MIMEMultipart()
     msg['Subject'] = subject
